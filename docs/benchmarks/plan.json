@@ -1,0 +1,165 @@
+﻿{
+  "benchmark_version": "phase15-v1",
+  "configuration": {
+    "scenarios": [
+      "db_connection_exhaustion",
+      "error_spike",
+      "failed_deployment",
+      "high_cpu",
+      "memory_leak",
+      "queue_backlog"
+    ],
+    "trials": 10,
+    "seed": 20260909,
+    "warmup": 0,
+    "cooldown_seconds": 0
+  },
+  "methodology": {
+    "baseline": "A recorded manual-equivalent workflow using the same seeded scenario and recovery criteria.",
+    "opspilot": "The real API/AI/RAG/policy/approval/ToolGateway/orchestration/verification path.",
+    "mttd": "detected_at - trigger_at",
+    "mtti": "diagnosed_at - detected_at",
+    "mttr": "resolved_at - trigger_at",
+    "valid_trial": "All required timestamps and persisted outcomes exist and are chronological."
+  },
+  "scenarios": [
+    {
+      "scenario": "db_connection_exhaustion",
+      "trigger_condition": "database connection utilization reaches 98-100%",
+      "expected_root_cause": "Database connection pool exhaustion",
+      "acceptable_root_causes": [
+        "Database connection pool exhaustion"
+      ],
+      "expected_evidence": [
+        "DB utilization critical",
+        "timeouts",
+        "connection failure logs"
+      ],
+      "expected_action": "rollback_deployment",
+      "acceptable_actions": [
+        "rollback_deployment",
+        "scale_service"
+      ],
+      "expected_risk_level": "HIGH",
+      "recovery_conditions": [
+        "DB utilization below safe threshold",
+        "timeouts stop",
+        "latency normalizes"
+      ]
+    },
+    {
+      "scenario": "error_spike",
+      "trigger_condition": "5xx/error rate increases sharply",
+      "expected_root_cause": "Application error spike",
+      "acceptable_root_causes": [
+        "Application error spike"
+      ],
+      "expected_evidence": [
+        "error rate above threshold",
+        "error logs",
+        "health degradation"
+      ],
+      "expected_action": "restart_service",
+      "acceptable_actions": [
+        "restart_service",
+        "rollback_deployment"
+      ],
+      "expected_risk_level": "HIGH",
+      "recovery_conditions": [
+        "error rate returns to baseline",
+        "health is healthy"
+      ]
+    },
+    {
+      "scenario": "failed_deployment",
+      "trigger_condition": "new deployment changes the service version",
+      "expected_root_cause": "Failed deployment",
+      "acceptable_root_causes": [
+        "Failed deployment"
+      ],
+      "expected_evidence": [
+        "failed deployment record",
+        "health check failure",
+        "correlated error spike"
+      ],
+      "expected_action": "rollback_deployment",
+      "acceptable_actions": [
+        "rollback_deployment"
+      ],
+      "expected_risk_level": "HIGH",
+      "recovery_conditions": [
+        "a later rollback restores baseline",
+        "health checks pass"
+      ]
+    },
+    {
+      "scenario": "high_cpu",
+      "trigger_condition": "cpu_usage rises above 90%",
+      "expected_root_cause": "CPU saturation",
+      "acceptable_root_causes": [
+        "CPU saturation"
+      ],
+      "expected_evidence": [
+        "CPU above threshold",
+        "latency increase",
+        "resource exhaustion log"
+      ],
+      "expected_action": "restart_service",
+      "acceptable_actions": [
+        "restart_service",
+        "scale_service"
+      ],
+      "expected_risk_level": "MEDIUM",
+      "recovery_conditions": [
+        "CPU below 70%",
+        "latency near baseline",
+        "error rate normal"
+      ]
+    },
+    {
+      "scenario": "memory_leak",
+      "trigger_condition": "memory usage continuously increases",
+      "expected_root_cause": "Memory leak",
+      "acceptable_root_causes": [
+        "Memory leak"
+      ],
+      "expected_evidence": [
+        "memory pressure",
+        "allocation pressure",
+        "latency increase"
+      ],
+      "expected_action": "restart_service",
+      "acceptable_actions": [
+        "restart_service"
+      ],
+      "expected_risk_level": "MEDIUM",
+      "recovery_conditions": [
+        "service restart resets memory",
+        "latency normalizes"
+      ]
+    },
+    {
+      "scenario": "queue_backlog",
+      "trigger_condition": "queue depth rises while workers approach saturation",
+      "expected_root_cause": "Insufficient notification worker capacity",
+      "acceptable_root_causes": [
+        "Insufficient notification worker capacity"
+      ],
+      "expected_evidence": [
+        "queue backlog",
+        "worker saturation",
+        "processing delay"
+      ],
+      "expected_action": "scale_workers",
+      "acceptable_actions": [
+        "scale_workers"
+      ],
+      "expected_risk_level": "MEDIUM",
+      "recovery_conditions": [
+        "queue depth trends toward baseline",
+        "worker utilization normal"
+      ]
+    }
+  ],
+  "status": "PLAN_ONLY_NO_MEASUREMENTS"
+}

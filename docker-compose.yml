@@ -1,0 +1,118 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      # Local PostgreSQL already uses host port 5432; expose Docker PostgreSQL on 5433.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opspilot -d opspilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  qdrant:
+    image: qdrant/qdrant:v1.13.2
+    ports:
+      - "127.0.0.1:6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL in .env}
+      QDRANT_URL: ${QDRANT_URL:?Set QDRANT_URL in .env}
+      QDRANT_COLLECTION_NAME: ${QDRANT_COLLECTION_NAME:-opspilot_knowledge}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-mock}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-mock-embedding-v1}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-64}
+      RAG_CHUNK_SIZE: ${RAG_CHUNK_SIZE:-1200}
+      RAG_CHUNK_OVERLAP: ${RAG_CHUNK_OVERLAP:-150}
+      RAG_TOP_K: ${RAG_TOP_K:-5}
+      RAG_MAX_RESULTS: ${RAG_MAX_RESULTS:-10}
+      RAG_MAX_CONTEXT_CHARS: ${RAG_MAX_CONTEXT_CHARS:-12000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      DEV_ADMIN_EMAIL: ${DEV_ADMIN_EMAIL:-admin@opspilot.local}
+      DEV_ADMIN_PASSWORD: ${DEV_ADMIN_PASSWORD:?Set DEV_ADMIN_PASSWORD in .env}
+      DEV_ENGINEER_EMAIL: ${DEV_ENGINEER_EMAIL:-engineer@opspilot.local}
+      DEV_ENGINEER_PASSWORD: ${DEV_ENGINEER_PASSWORD:?Set DEV_ENGINEER_PASSWORD in .env}
+      DEV_VIEWER_EMAIL: ${DEV_VIEWER_EMAIL:-viewer@opspilot.local}
+      DEV_VIEWER_PASSWORD: ${DEV_VIEWER_PASSWORD:?Set DEV_VIEWER_PASSWORD in .env}
+      INCIDENT_CORRELATION_WINDOW_MINUTES: ${INCIDENT_CORRELATION_WINDOW_MINUTES:-5}
+      SIMULATOR_ENABLED: ${SIMULATOR_ENABLED:-true}
+      SIMULATOR_TICK_INTERVAL_SECONDS: ${SIMULATOR_TICK_INTERVAL_SECONDS:-1}
+      SIMULATOR_RANDOM_SEED: ${SIMULATOR_RANDOM_SEED:-20260908}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-1}
+      CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-1}
+      CELERY_TASK_MAX_RETRIES: ${CELERY_TASK_MAX_RETRIES:-3}
+      CELERY_TASK_SOFT_TIME_LIMIT: ${CELERY_TASK_SOFT_TIME_LIMIT:-60}
+      CELERY_TASK_TIME_LIMIT: ${CELERY_TASK_TIME_LIMIT:-120}
+      APP_ENV: development
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/live', timeout=2)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - ./scripts:/opt/opspilot-scripts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: ./backend
+    command: ["celery", "-A", "app.workers.celery_app:celery_app", "worker", "--loglevel=INFO"]
+    environment:
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+      REDIS_URL: ${REDIS_URL:?Set REDIS_URL in .env}
+      QDRANT_URL: ${QDRANT_URL:?Set QDRANT_URL in .env}
+      QDRANT_COLLECTION_NAME: ${QDRANT_COLLECTION_NAME:-opspilot_knowledge}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-mock}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-mock-embedding-v1}
+      EMBEDDING_DIMENSION: ${EMBEDDING_DIMENSION:-64}
+      RAG_CHUNK_SIZE: ${RAG_CHUNK_SIZE:-1200}
+      RAG_CHUNK_OVERLAP: ${RAG_CHUNK_OVERLAP:-150}
+      RAG_TOP_K: ${RAG_TOP_K:-5}
+      RAG_MAX_RESULTS: ${RAG_MAX_RESULTS:-10}
+      RAG_MAX_CONTEXT_CHARS: ${RAG_MAX_CONTEXT_CHARS:-12000}
+      CELERY_RESULT_BACKEND: ${CELERY_RESULT_BACKEND:-redis://redis:6379/1}
+      CELERY_WORKER_CONCURRENCY: ${CELERY_WORKER_CONCURRENCY:-1}
+      CELERY_WORKER_PREFETCH_MULTIPLIER: ${CELERY_WORKER_PREFETCH_MULTIPLIER:-1}
+      CELERY_TASK_MAX_RETRIES: ${CELERY_TASK_MAX_RETRIES:-3}
+      CELERY_TASK_SOFT_TIME_LIMIT: ${CELERY_TASK_SOFT_TIME_LIMIT:-60}
+      CELERY_TASK_TIME_LIMIT: ${CELERY_TASK_TIME_LIMIT:-120}
+      APP_ENV: development
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  qdrant_data:

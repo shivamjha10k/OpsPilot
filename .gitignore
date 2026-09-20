@@ -1,0 +1,28 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+dist/
+build/
+node_modules/
+*.log
+performance/results/*.json
+docs/benchmarks/results/*.json
+frontend/dist/
+
+# Agent/IDE scratch
+scratch/
+
+# Temporary token
+token.txt
+
+# Temporary backend scripts
+backend/test_ai.py
+backend/test_orchestration.py
+backend/create_db.py
+
